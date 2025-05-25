@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guess the Name</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 1rem;
+            background: #f9f9f9;
+        }
+
+        img {
+            max-width: 90%;
+            height: auto;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .options {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: 1fr;
+            max-width: 400px;
+            margin: 0 auto 1rem;
+        }
+
+        button {
+            font-size: 1rem;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #result {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        #next {
+            padding: 0.75rem 1.25rem;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            background: #28a745;
+            color: white;
+            cursor: pointer;
+        }
+
+        #next:hover {
+            background: #1e7e34;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Who's this?</h2>
+    <p id="streak">Streak: 0</p>
+    <img id="person-image" src="" alt="Guess the person">
+    <div class="options" id="options"></div>
+    <p id="result"></p>
+    <button id="next" onclick="loadQuestion()" style="display: none;">Next</button>
+
+    <script>
+        let inputLocked = false;
+
+        function loadQuestion() {
+            document.getElementById("result").textContent = "";
+            document.getElementById("next").style.display = "none";
+            inputLocked = false;
+
+            fetch("/question")
+                .then((res) => res.json())
+                .then((data) => {
+                    document.getElementById("person-image").src = data.image_url;
+                    const optionsDiv = document.getElementById("options");
+                    optionsDiv.innerHTML = "";
+
+                    data.options.forEach((name, index) => {
+                        const btn = document.createElement("button");
+                        btn.textContent = `${index + 1}. ${name}`;
+                        btn.onclick = () => {
+                            if (!inputLocked) {
+                                inputLocked = true;
+                                handleAnswer(name);
+                            }
+                        };
+                        optionsDiv.appendChild(btn);
+                    });
+
+                    window.onkeydown = function (e) {
+                        if (!inputLocked && e.key >= 1 && e.key <= 5) {
+                            inputLocked = true;
+                            const selectedOption = data.options[e.key - 1];
+                            handleAnswer(selectedOption);
+                        }
+                    };
+                });
+        }
+
+        function handleAnswer(guess) {
+            fetch("/answer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ guess: guess })
+            })
+                .then(res => res.json())
+                .then(result => {
+                    document.getElementById("streak").textContent = `🔥 Streak: ${result.streak}`;
+
+                    if (result.correct) {
+                        document.getElementById("result").textContent = "✅ Correct!";
+                        setTimeout(loadQuestion, 800);
+                    } else {
+                        document.getElementById("result").textContent = `❌ Wrong! It was ${result.correct_name}`;
+                        document.getElementById("next").style.display = "block";
+                    }
+                });
+        }
+
+
+        window.onload = loadQuestion;
+    </script>
+</body>
+
+</html>
